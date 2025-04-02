@@ -3,10 +3,15 @@ from pathlib import Path
 import requests
 import json
 import os
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 
-API_KEY = "sk-qcpqszdsbeaorqannddefogbfmltdtvkiwtqzgtbuqblgyoo"
+# 从环境变量获取API密钥
+API_KEY = os.environ.get("API_KEY", "")
 API_URL = "https://api.siliconflow.cn/v1/chat/completions"
 
 # 通用系统提示部分

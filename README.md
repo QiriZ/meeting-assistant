@@ -1,11 +1,14 @@
 # 会议转写小助手
 
-一个基于 DeepSeek API 的智能会议记录处理工具，可以将口语化的会议记录转换为结构化的专业文稿。
+一个基于 DeepSeek API 的智能会议记录处理工具，可以将基于飞书妙计、讯飞听见等音频转文字工具生成的口语化的会议记录转换为可直接使用的结构化会议记录。
 
 ## 功能特点
 
 - 支持多种文本格式（Markdown、Word、TXT）
-- 双模式转换：采访稿模式和演讲稿模式
+- 三种模式转换：
+  - **采访稿模式**：优化问答格式，保留回答原文
+  - **演讲提纲模式**：构建金字塔结构，提取核心观点
+  - **演讲稿模式**：按主题分段，保留原文语气和专业性
 - 智能文本处理：
   - 术语标准化
   - 情感保留
@@ -15,10 +18,41 @@
 
 ## 快速开始
 
-1. 安装依赖：
+1. 克隆项目：
+```bash
+git clone https://github.com/你的用户名/meeting-transcription-assistant.git
+cd meeting-transcription-assistant
+```
+
+2. 设置环境变量：
+```bash
+# 创建.env文件
+echo "API_KEY=你的DeepSeek_API密钥" > .env
+```
+
+3. 安装依赖：
 ```bash
 pip install -r requirements.txt
 ```
+
+4. 启动应用：
+```bash
+python app.py
+```
+
+5. 打开浏览器，访问：http://localhost:5001
+
+## 部署到云服务
+
+本项目可以部署到Render.com免费托管：
+
+1. 创建GitHub仓库并推送项目代码
+2. 在Render.com创建新的Web Service
+3. 连接GitHub仓库
+4. 设置环境变量：`API_KEY`
+5. 设置构建命令：`pip install -r requirements.txt`
+6. 设置启动命令：`gunicorn wsgi:app`
+7. 点击部署
 
 2. 启动服务器：
 ```bash
