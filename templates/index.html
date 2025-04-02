@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会议转写小助手</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部导航栏 -->
+        <header class="header">
+            <h1><i class="fas fa-microphone-alt"></i> 会议转写小助手</h1>
+            <div class="mode-switcher">
+                <button class="active" id="interview-mode">
+                    <i class="fas fa-comments"></i> 采访稿
+                </button>
+                <button id="speech-outline-mode">
+                    <i class="fas fa-tasks"></i> 演讲提纲
+                </button>
+                <button id="speech-mode">
+                    <i class="fas fa-microphone"></i> 演讲稿
+                </button>
+            </div>
+        </header>
+
+        <!-- 主要内容区 -->
+        <main class="main-content">
+            <!-- 输入区域 -->
+            <section class="input-section">
+                <div class="upload-area" id="dropZone">
+                    <i class="fas fa-file-upload"></i>
+                    <p>拖拽文本文件到此处或点击上传</p>
+                    <p class="file-types">支持 Markdown、Word、TXT 等格式</p>
+                    <input type="file" id="fileInput" accept=".md,.txt,.doc,.docx" hidden>
+                </div>
+
+                <!-- 智能粘贴板 -->
+                <div class="clipboard-area">
+                    <h3><i class="fas fa-clipboard"></i> 智能粘贴板</h3>
+                    <textarea id="inputTextarea" placeholder="粘贴带时间戳的文本..."></textarea>
+                </div>
+            </section>
+
+            <!-- 处理控制台 -->
+            <section class="control-panel">
+                <div class="processing-options">
+                    <label class="toggle">
+                        <input type="checkbox" checked>
+                        <span class="slider">术语标准化</span>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" checked>
+                        <span class="slider">情感保留</span>
+                    </label>
+                    <label class="toggle">
+                        <input type="checkbox" checked>
+                        <span class="slider">智能分段</span>
+                    </label>
+                </div>
+                <button class="process-btn">
+                    <i class="fas fa-magic"></i> 开始处理
+                </button>
+            </section>
+
+            <!-- 输出区域 -->
+            <section class="output-section">
+                <div class="output-header">
+                    <h3><i class="fas fa-file-alt"></i> 原始文本</h3>
+                    <h3><i class="fas fa-file-word"></i> 处理结果</h3>
+                </div>
+                <div class="output-container">
+                    <div class="original-text">
+                        <div class="content"></div>
+                    </div>
+                    <div class="processed-text">
+                        <div class="content"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 底部工具栏 -->
+        <footer class="footer">
+            <button class="export-btn">
+                <i class="fas fa-cloud-download-alt"></i> 云端保存
+            </button>
+            <button class="export-btn">
+                <i class="fas fa-download"></i> 本地导出
+            </button>
+            <div class="contact-info">会议记录整理助手@2025，如有任何优化需求联系 Qiri Zhang 19946286616（微信同号）</div>
+        </footer>
+    </div>
+    <script>
+// 获取DOM元素
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const textarea = document.getElementById('inputTextarea');
+const origTextContainer = document.querySelector('.original-text .content');
+const processedText = document.querySelector('.processed-text .content');
+const modeButtons = document.querySelectorAll('.mode-switcher button');
+let currentMode = 'interview';
+
+// 初始化函数
+function initApp() {
+    // 确保原始文本区域初始化为空
+    updateOriginalText('');
+    
+    // 自动聚焦到文本框
+    textarea.focus();
+}
+
+// 更新原始文本显示
+function updateOriginalText(text) {
+    // 直接更新文本内容，不使用HTML
+    origTextContainer.textContent = text;
+}
+
+// 处理模式切换
+modeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        modeButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        
+        // 根据ID确定当前模式
+        if (button.id.includes('interview')) {
+            currentMode = 'interview';
+        } else if (button.id.includes('speech-outline')) {
+            currentMode = 'speech-outline';
+        } else {
+            currentMode = 'speech';
+        }
+        
+        console.log('Mode switched to:', currentMode);
+    });
+});
+
+// 处理文件拖放
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        const text = await file.text();
+        textarea.value = text;
+        updateOriginalText(text);
+    }
+});
+
+dropZone.addEventListener('click', () => {
+    fileInput.click();
+});
+
+fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        const text = await file.text();
+        textarea.value = text;
+        updateOriginalText(text);
+    }
+});
+
+// 处理输入事件 - 实时更新原始文本
+textarea.addEventListener('input', () => {
+    updateOriginalText(textarea.value);
+});
+
+// 特别处理粘贴事件
+textarea.addEventListener('paste', () => {
+    // 使用更长的延迟确保获取粘贴后的完整内容
+    setTimeout(() => {
+        updateOriginalText(textarea.value);
+    }, 20);
+});
+
+// 页面加载完成后立即初始化
+window.addEventListener('DOMContentLoaded', initApp);
+
+// 处理文本转换
+document.querySelector('.process-btn').addEventListener('click', async () => {
+    const text = textarea.value;
+    if (!text) {
+        alert('请先输入或上传文本内容');
+        return;
+    }
+
+    const processBtn = document.querySelector('.process-btn');
+    processBtn.disabled = true;
+    processBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+    processedText.innerHTML = '<div class="loading">正在处理文本，目前调用DeepSeek-R1预计处理需要3-5分钟，请稍候...</div>';
+
+    try {
+        console.log('Sending request with:', { text, mode: currentMode });
+        const response = await fetch('/api/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                mode: currentMode
+            })
+        });
+
+        const result = await response.json();
+        console.log('Received response:', result);
+
+        if (result.success) {
+            processedText.innerHTML = marked.parse(result.processed_text);
+        } else {
+            processedText.innerHTML = `<div class="error">处理失败：${result.error}</div>`;
+        }
+    } catch (error) {
+        console.error('Request failed:', error);
+        processedText.innerHTML = `<div class="error">请求失败：${error.message}</div>`;
+    } finally {
+        processBtn.disabled = false;
+        processBtn.innerHTML = '<i class="fas fa-magic"></i> 开始处理';
+    }
+});
+
+// 处理导出
+document.querySelectorAll('.export-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const content = processedText.innerHTML;
+        if (!content) {
+            alert('请先处理文本内容');
+            return;
+        }
+
+        if (btn.textContent.includes('本地')) {
+            const blob = new Blob([processedText.textContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `processed_text_${Date.now()}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } else {
+            alert('云端保存功能即将上线');
+        }
+    });
+});
+    </script>
+</body>
+</html>
