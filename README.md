@@ -42,17 +42,27 @@ python app.py
 
 5. 打开浏览器，访问：http://localhost:5001
 
-## 部署到云服务
+## 部署到Vercel免费平台
 
-本项目可以部署到Render.com免费托管：
+本项目可以轻松部署到Vercel，无需信用卡或支付即可获得免费项目托管：
 
-1. 创建GitHub仓库并推送项目代码
-2. 在Render.com创建新的Web Service
-3. 连接GitHub仓库
-4. 设置环境变量：`API_KEY`
-5. 设置构建命令：`pip install -r requirements.txt`
-6. 设置启动命令：`gunicorn wsgi:app`
-7. 点击部署
+1. 访问 [Vercel官网](https://vercel.com/) 并使用GitHub账号登录
+
+2. 点击“+ New Project”并选择你的GitHub仓库
+
+3. 配置项目：
+   - 框架预设：选择 `Other`
+   - 根目录：保持默认值 `.`
+   - 点击“Environment Variables”并添加：
+     - `API_KEY`：填入你的DeepSeek API密钥
+
+4. 点击“Deploy”开始部署
+
+5. 部署完成后，你将获得一个类似 `.vercel.app` 的公开网址
+
+6. 可选操作：在Vercel项目设置中绑定自定义域名
+
+项目部署后，每次在GitHub上更新代码，Vercel将自动重新部署。
 
 2. 启动服务器：
 ```bash
