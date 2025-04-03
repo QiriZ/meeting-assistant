@@ -116,17 +116,12 @@ def get_system_prompt(mode):
 def index():
     return render_template('index.html')
 
-@app.route('/api/get-config', methods=['GET'])
-def get_config():
-    # 返回前端需要的配置信息
-    return jsonify({
-        "apiUrl": API_URL,
-        "apiKey": API_KEY  # 在实际生产环境中需谨慎处理API密钥
-    })
+# 删除不需要的配置接口
 
-@app.route('/api/get-prompt', methods=['POST'])
-def get_prompt():
+@app.route('/api/process', methods=['POST'])
+def process_text():
     try:
+        print("Received request")
         data = request.json
         text = data.get('text', '')
         mode = data.get('mode', 'interview')  # 支持多种模式
@@ -142,44 +137,61 @@ def get_prompt():
             {"role": "user", "content": prompt_text}
         ]
         
-        return jsonify({
-            "success": True,
-            "messages": messages,
+        # 使用urllib库进行API调用，绕过PythonAnywhere限制
+        import urllib.request
+        import urllib.error
+        import json
+        
+        data = json.dumps({
             "model": "deepseek-ai/DeepSeek-R1",
+            "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 2000
-        })
-            
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        })
-
-# 保留原始处理接口以向后兼容
-@app.route('/api/process', methods=['POST'])
-def process_text():
-    try:
-        print("Received request")
-        data = request.json
-        text = data.get('text', '')
-        processed_text = data.get('processed_text', '')
+            "max_tokens": 2000,
+            "stream": False
+        }).encode('utf-8')
         
-        # 此函数现在只接收已经处理过的文本并返回
-        # 实际的API调用将在前端完成
+        # 创建HTTP请求
+        req = urllib.request.Request(
+            API_URL,
+            data=data,
+            headers={
+                'Authorization': f'Bearer {API_KEY}',
+                'Content-Type': 'application/json'
+            },
+            method="POST"
+        )
         
-        if processed_text:
-            return jsonify({
-                "success": True,
-                "processed_text": processed_text
-            })
-        else:
+        try:
+            # 发送请求
+            with urllib.request.urlopen(req, timeout=300) as response:  # 5分钟超时
+                result = json.loads(response.read().decode('utf-8'))
+                processed_content = result['choices'][0]['message']['content']
+                
+                return jsonify({
+                    "success": True,
+                    "processed_text": processed_content
+                })
+        except urllib.error.HTTPError as e:
+            print(f"HTTP Error: {e.code} - {e.reason}")
             return jsonify({
                 "success": False,
-                "error": "No processed text provided"
+                "error": f"API调用错误: {e.code} - {e.reason}"
+            })
+        except urllib.error.URLError as e:
+            print(f"URL Error: {e.reason}")
+            return jsonify({
+                "success": False,
+                "error": f"URL连接错误: {e.reason}"
+            })
+        except Exception as e:
+            print(f"API Request Error: {str(e)}")
+            return jsonify({
+                "success": False,
+                "error": f"API请求失败: {str(e)}"
             })
             
     except Exception as e:
+        print(f"General Error: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)

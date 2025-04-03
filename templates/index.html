@@ -187,74 +187,6 @@ textarea.addEventListener('paste', () => {
 // 页面加载完成后立即初始化
 window.addEventListener('DOMContentLoaded', initApp);
 
-// 获取API配置
-async function getApiConfig() {
-    try {
-        const response = await fetch('/api/get-config');
-        const config = await response.json();
-        return config;
-    } catch (error) {
-        console.error('获取API配置失败:', error);
-        throw new Error('获取API配置失败，请刷新页面重试');
-    }
-}
-
-// 获取处理提示及参数
-async function getPromptAndConfig(text, mode) {
-    try {
-        const response = await fetch('/api/get-prompt', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                text: text,
-                mode: mode
-            })
-        });
-
-        const data = await response.json();
-        if (!data.success) {
-            throw new Error(data.error || '获取处理配置失败');
-        }
-        return data;
-    } catch (error) {
-        console.error('获取处理提示失败:', error);
-        throw error;
-    }
-}
-
-// 直接调用DeepSeek API
-async function callDeepSeekAPI(config, promptData) {
-    try {
-        const response = await fetch(config.apiUrl, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${config.apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: promptData.model,
-                messages: promptData.messages, 
-                temperature: promptData.temperature,
-                max_tokens: promptData.max_tokens,
-                stream: false
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API 调用失败 (${response.status}): ${errorText}`);
-        }
-
-        const result = await response.json();
-        return result.choices[0].message.content;
-    } catch (error) {
-        console.error('DeepSeek API 调用失败:', error);
-        throw error;
-    }
-}
-
 // 处理文本转换
 document.querySelector('.process-btn').addEventListener('click', async () => {
     const text = textarea.value;
@@ -269,23 +201,30 @@ document.querySelector('.process-btn').addEventListener('click', async () => {
     processedText.innerHTML = '<div class="loading">正在处理文本，目前调用DeepSeek-R1预计处理需要3-5分钟，请稍候...</div>';
 
     try {
-        // 1. 获取API配置
-        const apiConfig = await getApiConfig();
-        
-        // 2. 获取处理提示及参数
-        const promptData = await getPromptAndConfig(text, currentMode);
-        
-        // 3. 直接调用DeepSeek API
-        console.log('准备调用DeepSeek API...');
-        const processedContent = await callDeepSeekAPI(apiConfig, promptData);
-        
-        // 4. 显示处理结果
-        processedText.innerHTML = marked.parse(processedContent);
-        
-        console.log('处理完成');
+        // 直接通过后端调用API
+        console.log('发送请求到后端...');
+        const response = await fetch('/api/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                mode: currentMode
+            })
+        });
+
+        const result = await response.json();
+        console.log('收到响应:', result);
+
+        if (result.success) {
+            processedText.innerHTML = marked.parse(result.processed_text);
+        } else {
+            processedText.innerHTML = `<div class="error">处理失败：${result.error}</div>`;
+        }
     } catch (error) {
-        console.error('处理失败:', error);
-        processedText.innerHTML = `<div class="error">处理失败: ${error.message}</div>`;
+        console.error('请求失败:', error);
+        processedText.innerHTML = `<div class="error">请求失败：${error.message}</div>`;
     } finally {
         processBtn.disabled = false;
         processBtn.innerHTML = '<i class="fas fa-magic"></i> 开始处理';
