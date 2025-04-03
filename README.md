@@ -44,45 +44,7 @@ python app.py
 
 ## 部署到云服务
 
-### 方案一：使用Replit部署（推荐，无需信用卡）
-
-Replit提供现代化的Python环境，可以非常简单地部署这个应用：
-
-1. **注册Replit账号**
-   - 访问[Replit官网](https://replit.com/)
-   - 点击“Sign Up”并完成注册（可使用GitHub账号直接登录）
-
-2. **创建Python项目**
-   - 登录后，点击右上角的“+”按钮
-   - 选择“Python”模板
-   - 给项目起名（如“meeting-transcription-assistant”）
-   - 点击“Create Repl”
-
-3. **上传代码文件**
-   - 点击左侧文件面板顶部的“Upload file”按钮
-   - 选择并上传所有项目文件（app.py、templates和static文件夹等）
-   - 或者点击“+”按钮创建文件，并复制粘贴内容
-
-4. **设置环境变量**
-   - 点击左侧的“Secrets”选项（锁形图标）
-   - 添加API密钥：KEY=`API_KEY`，VALUE=您的DeepSeek API密钥
-
-5. **创建.replit文件**
-   - 创建一个名为`.replit`的文件
-   - 添加内容：`run = "python app.py"`
-
-6. **安装依赖并启动应用**
-   - 在Shell中运行：`pip install flask requests python-dotenv gunicorn`
-   - 点击顶部的“Run”按钮
-   - 应用会自动启动，并获得一个公共URL
-
-7. **查看并分享您的应用**
-   - URL格式为：`https://meeting-transcription-assistant.您的用户名.repl.co`
-   - 这个URL可以分享给任何人访问
-
-### 方案二：使用Render.com部署（需要信用卡验证）
-
-本项目也可以部署到Render.com：
+本项目可以部署到Render.com免费托管：
 
 1. 创建GitHub仓库并推送项目代码
 2. 在Render.com创建新的Web Service
