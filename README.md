@@ -42,17 +42,113 @@ python app.py
 
 5. 打开浏览器，访问：http://localhost:5001
 
-## 部署到云服务
+## 部署到PythonAnywhere
 
-本项目可以部署到Render.com免费托管：
+本项目可以部署到PythonAnywhere免费托管（支持中国访问）：
 
-1. 创建GitHub仓库并推送项目代码
-2. 在Render.com创建新的Web Service
-3. 连接GitHub仓库
-4. 设置环境变量：`API_KEY`
-5. 设置构建命令：`pip install -r requirements.txt`
-6. 设置启动命令：`gunicorn wsgi:app`
-7. 点击部署
+### 1. 准备工作
+
+- 确保GitHub仓库已创建（https://github.com/QiriZ/meeting-assistant）
+- 已经将所有代码推送到GitHub
+
+### 2. 在PythonAnywhere上注册并登录
+
+- 访问 https://www.pythonanywhere.com 登录你的账户
+- 如果已有账户，可以使用现有账户（免费版可以创建多个网站，但同时只能有一个活跃）
+
+### 3. 从 GitHub 克隆仓库
+
+1. 在PythonAnywhere页面点击顶部的"Consoles"标签
+2. 选择打开"Bash"控制台
+3. 在控制台中克隆你的仓库：
+```bash
+git clone https://github.com/QiriZ/meeting-assistant.git
+```
+
+### 4. 设置虚拟环境
+
+在控制台中创建和激活虚拟环境：
+
+```bash
+cd meeting-assistant
+
+# 创建虚拟环境
+mkvirtualenv --python=/usr/bin/python3.9 meeting_assistant_env
+
+# 如果已经创建，可以激活它
+workon meeting_assistant_env
+
+# 安装依赖
+pip install -r requirements.txt
+```
+
+### 5. 创建.env文件
+
+```bash
+echo "API_KEY=你的DeepSeek_API密钥" > .env
+```
+
+### 6. 配置 Web 应用
+
+1. 在PythonAnywhere页面上点击"Web"标签
+2. 点击"Add a new web app"
+3. 点击"Next"并选择手动配置 (manual configuration)
+4. 选择Python 3.9
+5. 点击"Next"
+
+### 7. 配置WSGI文件
+
+1. 找到并点击编辑WSGI文件的链接（通常在网页应用设置页面的中间部分）
+2. 删除所有代码，并替换为以下内容：
+
+```python
+import sys
+import os
+from dotenv import load_dotenv
+
+# 添加应用目录到路径
+path = '/home/你的PythonAnywhere用户名/meeting-assistant'
+if path not in sys.path:
+    sys.path.append(path)
+
+# 加载环境变量
+load_dotenv(os.path.join(path, '.env'))
+
+# 导入应用
+from app import app as application
+```
+
+记得将上面的`你的PythonAnywhere用户名`替换为你的实际用户名。
+
+### 8. 配置虚拟环境路径
+
+在Web应用设置页面中：
+
+1. 在"Virtualenv"部分，输入虚拟环境路径：
+```
+/home/你的PythonAnywhere用户名/.virtualenvs/meeting_assistant_env
+```
+
+2. 在"Static files"部分，添加静态文件映射：
+   - URL: `/static/`
+   - Directory: `/home/你的PythonAnywhere用户名/meeting-assistant/static`
+
+### 9. 重启网站
+
+点击网页应用设置页面顶部的"Reload"按钮。
+
+### 10. 访问你的网站
+
+现在你可以通过以下地址访问你的网站：
+```
+http://你的PythonAnywhere用户名.pythonanywhere.com
+```
+
+### 注意事项
+
+1. PythonAnywhere免费账户同时只能有一个活动网站，如果你已经有了一个网站，需要先禁用它
+2. API调用可能会受到PythonAnywhere免费账户的外部访问限制，需要添加到白名单
+3. CPU时间有限制，但对于中等规模使用应该足够
 
 2. 启动服务器：
 ```bash
