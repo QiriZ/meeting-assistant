@@ -12,7 +12,22 @@ app = Flask(__name__, static_folder='static', static_url_path='/static')
 
 # 从环境变量获取API密钥
 API_KEY = os.environ.get("API_KEY", "")
-API_URL = "https://api.siliconflow.cn/v1/chat/completions"
+
+# 定义API地址和代理选项
+ORIGINAL_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
+
+# 在PythonAnywhere上使用CORS代理绕过限制
+# 如果需要使用代理，在.env文件中添加：USE_PROXY=true
+USE_PROXY = os.environ.get("USE_PROXY", "false").lower() == "true"
+
+# 自动选择API URL
+if USE_PROXY:
+    # 使用CORS代理
+    API_URL = "https://corsproxy.io/?" + ORIGINAL_API_URL
+    print("Using CORS proxy for API calls")
+else:
+    API_URL = ORIGINAL_API_URL
+    print("Using direct API calls")
 
 # 通用系统提示部分
 SYSTEM_PROMPT_COMMON = """你是一个专业的会议记录整理助手，擅长将口语化的会议记录转换为结构化的专业文稿。
@@ -137,51 +152,55 @@ def process_text():
             {"role": "user", "content": prompt_text}
         ]
         
-        # 使用urllib库进行API调用，绕过PythonAnywhere限制
-        import urllib.request
-        import urllib.error
+        # 简化代码，使用标准requests请求（需要配合白名单使用）
+        import requests
         import json
         
-        data = json.dumps({
+        # 准备请求数据
+        request_data = {
             "model": "deepseek-ai/DeepSeek-R1",
             "messages": messages,
             "temperature": 0.7,
             "max_tokens": 2000,
             "stream": False
-        }).encode('utf-8')
+        }
         
-        # 创建HTTP请求
-        req = urllib.request.Request(
-            API_URL,
-            data=data,
-            headers={
-                'Authorization': f'Bearer {API_KEY}',
-                'Content-Type': 'application/json'
-            },
-            method="POST"
-        )
+        headers = {
+            'Authorization': f'Bearer {API_KEY}',
+            'Content-Type': 'application/json'
+        }
         
         try:
             # 发送请求
-            with urllib.request.urlopen(req, timeout=300) as response:  # 5分钟超时
-                result = json.loads(response.read().decode('utf-8'))
+            print(f"Sending request to {API_URL}")
+            response = requests.post(
+                API_URL,
+                json=request_data,
+                headers=headers,
+                timeout=300  # 5分钟超时
+            )
+            
+            print(f"Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
                 processed_content = result['choices'][0]['message']['content']
                 
                 return jsonify({
                     "success": True,
                     "processed_text": processed_content
                 })
-        except urllib.error.HTTPError as e:
-            print(f"HTTP Error: {e.code} - {e.reason}")
+            else:
+                print(f"API Error Response: {response.text}")
+                return jsonify({
+                    "success": False,
+                    "error": f"API调用错误: {response.status_code} - {response.reason}"
+                })
+        except requests.exceptions.RequestException as e:
+            print(f"Request Error: {str(e)}")
             return jsonify({
                 "success": False,
-                "error": f"API调用错误: {e.code} - {e.reason}"
-            })
-        except urllib.error.URLError as e:
-            print(f"URL Error: {e.reason}")
-            return jsonify({
-                "success": False,
-                "error": f"URL连接错误: {e.reason}"
+                "error": f"API请求失败: {str(e)}"
             })
         except Exception as e:
             print(f"API Request Error: {str(e)}")
