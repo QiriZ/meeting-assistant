@@ -104,11 +104,82 @@ function handleOptions(request) {
   return new Response(null, {
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
     }
   });
+}
+
+// 生成唯一请求ID
+function generateRequestId() {
+  return Date.now().toString() + Math.random().toString(36).substring(2, 15);
+}
+
+// 处理状态查询
+async function handleStatusCheck(request) {
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'application/json'
+  };
+  
+  // 处理OPTIONS请求
+  if (request.method === 'OPTIONS') {
+    return handleOptions(request);
+  }
+  
+  try {
+    const url = new URL(request.url);
+    const requestId = url.searchParams.get('requestId');
+    
+    if (!requestId) {
+      return new Response(JSON.stringify({ success: false, error: '缺少请求ID' }), {
+        headers,
+        status: 400
+      });
+    }
+    
+    // 检查请求状态
+    if (requestsInProgress[requestId]) {
+      const requestInfo = requestsInProgress[requestId];
+      
+      if (requestInfo.completed) {
+        // 请求已完成，返回结果
+        const result = requestInfo.result;
+        // 请求完成后删除记录
+        delete requestsInProgress[requestId];
+        
+        return new Response(JSON.stringify({
+          success: true,
+          completed: true,
+          ...result
+        }), { headers });
+      } else {
+        // 请求仍在处理中
+        return new Response(JSON.stringify({
+          success: true,
+          completed: false,
+          message: '文本处理中，请稍后再查询'
+        }), { headers });
+      }
+    } else {
+      return new Response(JSON.stringify({
+        success: false,
+        error: '请求不存在或已过期'
+      }), {
+        headers,
+        status: 404
+      });
+    }
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: `状态查询错误: ${error.message}`
+    }), {
+      headers,
+      status: 500
+    });
+  }
 }
 
 // 主要函数处理
@@ -143,12 +214,47 @@ async function handleRequest(request) {
       });
     }
     
+    // 生成唯一请求ID
+    const requestId = generateRequestId();
+    
+    // 存储请求信息
+    requestsInProgress[requestId] = {
+      completed: false,
+      result: null,
+      timestamp: Date.now()
+    };
+    
+    // 异步处理请求，不等待完成
+    processTextAsync(text, mode, requestId);
+    
+    // 立即返回请求ID
+    return new Response(JSON.stringify({
+      success: true,
+      requestId: requestId,
+      message: '请求已提交，请使用请求ID查询进度'
+    }), { headers });
+    
+  } catch (error) {
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: `处理错误: ${error.message}` 
+    }), {
+      headers,
+      status: 500
+    });
+  }
+}
+
+// 异步处理文本
+async function processTextAsync(text, mode, requestId) {
+  try {
     // 获取系统提示
     const systemPrompt = getSystemPrompt(mode);
     
     // 构建请求
     const promptText = `请将以下内容按照${mode}模式转换为专业文稿（保持时间戳和发言人标记）：\n\n${text}`;
     
+    // 调用DeepSeek API
     const apiResponse = await fetch('https://api.siliconflow.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -171,32 +277,48 @@ async function handleRequest(request) {
     const result = await apiResponse.json();
     
     if (apiResponse.status !== 200) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `API错误: ${apiResponse.status}`, 
-        details: result 
-      }), {
-        headers,
-        status: 500
-      });
+      requestsInProgress[requestId] = {
+        completed: true,
+        result: { 
+          success: false, 
+          error: `API错误: ${apiResponse.status}`, 
+          details: result 
+        },
+        timestamp: Date.now()
+      };
+    } else {
+      // 成功处理
+      requestsInProgress[requestId] = {
+        completed: true,
+        result: {
+          success: true,
+          processed_text: result.choices[0].message.content
+        },
+        timestamp: Date.now()
+      };
     }
-    
-    // 返回处理结果
-    return new Response(JSON.stringify({
-      success: true,
-      processed_text: result.choices[0].message.content
-    }), { headers });
-    
   } catch (error) {
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: `处理错误: ${error.message}` 
-    }), {
-      headers,
-      status: 500
-    });
+    // 记录错误
+    requestsInProgress[requestId] = {
+      completed: true,
+      result: { 
+        success: false, 
+        error: `处理错误: ${error.message}` 
+      },
+      timestamp: Date.now()
+    };
   }
+  
+  // 设置过期时间（1小时后自动删除）
+  setTimeout(() => {
+    if (requestsInProgress[requestId]) {
+      delete requestsInProgress[requestId];
+    }
+  }, 3600000);
 }
+
+// 存储正在处理的请求
+let requestsInProgress = {};
 
 // Worker入口点
 addEventListener('fetch', event => {
@@ -206,9 +328,12 @@ addEventListener('fetch', event => {
   // 路由处理
   if (url.pathname === '/process') {
     return event.respondWith(handleRequest(request));
+  } else if (url.pathname === '/status') {
+    // 处理状态查询请求
+    return event.respondWith(handleStatusCheck(request));
   } else {
     return event.respondWith(
-      new Response('会议转写小助手API服务 - 请使用POST请求访问/process', {
+      new Response('会议转写小助手API服务 - 请使用POST请求访问/process，使用GET访问/status?requestId=xxx查询状态', {
         headers: { 'Content-Type': 'text/plain' }
       })
     );
