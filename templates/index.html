@@ -201,9 +201,14 @@ document.querySelector('.process-btn').addEventListener('click', async () => {
     processedText.innerHTML = '<div class="loading">正在处理文本，目前调用DeepSeek-R1预计处理需要3-5分钟，请稍候...</div>';
 
     try {
-        // 直接通过后端调用API
-        console.log('发送请求到后端...');
-        const response = await fetch('/api/process', {
+        // 1. 获取API配置
+        console.log('获取API配置...');
+        const configResponse = await fetch('/api/get-config');
+        const config = await configResponse.json();
+        
+        // 2. 获取处理提示及参数
+        console.log('获取处理提示...');
+        const promptResponse = await fetch('/api/get-prompt', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -214,14 +219,53 @@ document.querySelector('.process-btn').addEventListener('click', async () => {
             })
         });
 
-        const result = await response.json();
-        console.log('收到响应:', result);
-
-        if (result.success) {
-            processedText.innerHTML = marked.parse(result.processed_text);
-        } else {
-            processedText.innerHTML = `<div class="error">处理失败：${result.error}</div>`;
+        const promptData = await promptResponse.json();
+        if (!promptData.success) {
+            throw new Error(promptData.error || '获取处理配置失败');
         }
+        
+        // 3. 直接调用DeepSeek API
+        console.log('直接调用DeepSeek API...');
+        const apiResponse = await fetch(config.apiUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${config.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: promptData.model,
+                messages: promptData.messages,
+                temperature: promptData.temperature,
+                max_tokens: promptData.max_tokens,
+                stream: false
+            })
+        });
+
+        if (!apiResponse.ok) {
+            const errorText = await apiResponse.text();
+            throw new Error(`API 调用失败 (${apiResponse.status}): ${errorText}`);
+        }
+
+        // 4. 处理API响应
+        const apiResult = await apiResponse.json();
+        const processedContent = apiResult.choices[0].message.content;
+        
+        // 5. 显示结果
+        console.log('成功获取结果!');
+        processedText.innerHTML = marked.parse(processedContent);
+        
+        // 6. 将结果存储到后端（可选）
+        await fetch('/api/process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text: text,
+                processed_text: processedContent
+            })
+        });
+
     } catch (error) {
         console.error('请求失败:', error);
         processedText.innerHTML = `<div class="error">请求失败：${error.message}</div>`;
