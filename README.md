@@ -42,27 +42,59 @@ python app.py
 
 5. 打开浏览器，访问：http://localhost:5001
 
-## 部署到Vercel免费平台
+## 部署到 Cloudflare
 
-本项目可以轻松部署到Vercel，无需信用卡或支付即可获得免费项目托管：
+本项目适合使用 Cloudflare Pages + Workers 的方式部署，这种方式在中国大陆访问速度快、稳定，并且免费额度充足：
 
-1. 访问 [Vercel官网](https://vercel.com/) 并使用GitHub账号登录
+### 1. 准备工作
 
-2. 点击“+ New Project”并选择你的GitHub仓库
+- 注册 [Cloudflare](https://dash.cloudflare.com) 账号（免费）
+- 将项目代码推送到 GitHub 仓库（已完成）
 
-3. 配置项目：
-   - 框架预设：选择 `Other`
-   - 根目录：保持默认值 `.`
-   - 点击“Environment Variables”并添加：
-     - `API_KEY`：填入你的DeepSeek API密钥
+### 2. 部署 Cloudflare Worker （后端服务）
 
-4. 点击“Deploy”开始部署
+1. 登录 Cloudflare Dashboard
+2. 选择 "Workers & Pages" 点击 "Create Worker"
+3. 复制粘贴项目中的 `worker.js` 文件内容
+4. 设置 Worker 名称，如 `meeting-assistant-worker`
+5. 点击 "Save and Deploy"
 
-5. 部署完成后，你将获得一个类似 `.vercel.app` 的公开网址
+### 3. 设置环境变量
 
-6. 可选操作：在Vercel项目设置中绑定自定义域名
+1. 在创建好的 Worker 页面中，选择 "Settings" 标签
+2. 点击 "Variables"
+3. 添加环境变量 `API_KEY`，值为你的 DeepSeek API 密钥
+4. 点击 "Save and Deploy"
 
-项目部署后，每次在GitHub上更新代码，Vercel将自动重新部署。
+### 4. 部署 Cloudflare Pages（前端页面）
+
+1. 在 Cloudflare Dashboard 选择 "Workers & Pages"
+2. 点击 "Create Application" 然后选择 "Pages"
+3. 连接你的 GitHub 仓库（首次使用需要授权）
+4. 选择你的项目仓库 `meeting-assistant`
+5. 配置项目：
+   - **构建设置**：
+     - 构建命令留空
+     - 输出目录：`static`
+   - 点击 "Save and Deploy"
+
+### 5. 更新前端调用地址
+
+部署完成后，需要在前端文件 `index.html` 中更新 Worker 的地址：
+
+```javascript
+// 将这行代码
+ const response = await fetch('https://meeting-assistant-worker.你的用户名.workers.dev/process', {
+
+// 更新为你实际的 Worker 地址，例如：
+const response = await fetch('https://meeting-assistant-worker.qiriz.workers.dev/process', {
+```
+
+然后重新部署前端页面。
+
+### 6. 访问你的应用
+
+Cloudflare Pages 会自动为你生成一个域名，格式为 `项目名.pages.dev`。你可以通过这个域名访问你的应用。
 
 2. 启动服务器：
 ```bash
