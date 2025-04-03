@@ -116,10 +116,17 @@ def get_system_prompt(mode):
 def index():
     return render_template('index.html')
 
-@app.route('/api/process', methods=['POST'])
-def process_text():
+@app.route('/api/get-config', methods=['GET'])
+def get_config():
+    # 返回前端需要的配置信息
+    return jsonify({
+        "apiUrl": API_URL,
+        "apiKey": API_KEY  # 在实际生产环境中需谨慎处理API密钥
+    })
+
+@app.route('/api/get-prompt', methods=['POST'])
+def get_prompt():
     try:
-        print("Received request")
         data = request.json
         text = data.get('text', '')
         mode = data.get('mode', 'interview')  # 支持多种模式
@@ -135,34 +142,41 @@ def process_text():
             {"role": "user", "content": prompt_text}
         ]
         
-        response = requests.post(
-            API_URL,
-            headers={
-                "Authorization": f"Bearer {API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek-ai/DeepSeek-R1",
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 2000,
-                "stream": False
-            }
-        )
+        return jsonify({
+            "success": True,
+            "messages": messages,
+            "model": "deepseek-ai/DeepSeek-R1",
+            "temperature": 0.7,
+            "max_tokens": 2000
+        })
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        })
+
+# 保留原始处理接口以向后兼容
+@app.route('/api/process', methods=['POST'])
+def process_text():
+    try:
+        print("Received request")
+        data = request.json
+        text = data.get('text', '')
+        processed_text = data.get('processed_text', '')
         
-        print(f"API Response: {response.status_code}")
-        print(f"Response content: {response.text}")
+        # 此函数现在只接收已经处理过的文本并返回
+        # 实际的API调用将在前端完成
         
-        if response.status_code == 200:
-            result = response.json()
+        if processed_text:
             return jsonify({
                 "success": True,
-                "processed_text": result['choices'][0]['message']['content']
+                "processed_text": processed_text
             })
         else:
             return jsonify({
                 "success": False,
-                "error": f"API Error: {response.status_code}"
+                "error": "No processed text provided"
             })
             
     except Exception as e:
